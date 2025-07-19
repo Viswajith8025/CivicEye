@@ -163,7 +163,7 @@ export const AdminComplaintDetail = () => {
       }
 
       const response = await axios.put(
-        `https://civiceye-1-mrbx.onrender.com/complaint/update/${id}`,
+        `https://civiceye-1-mrbx.onrender.com//complaint/update/${id}`,
         { status: newStatus },
         {
           headers: {
