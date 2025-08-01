@@ -17,6 +17,25 @@ export const CivicEyeUserHome = () => {
   const [error, setError] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
+  // Utility Functions
+  const checkNetworkStatus = async () => {
+    if (!navigator.onLine) {
+      throw new Error("You are offline. Please check your internet connection.");
+    }
+    return true;
+  };
+
+  const fetchWithRetry = async (fn, retries = 3, delay = 1000) => {
+    try {
+      await checkNetworkStatus();
+      return await fn();
+    } catch (error) {
+      if (retries <= 0) throw error;
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return fetchWithRetry(fn, retries - 1, delay * 2);
+    }
+  };
+
   useEffect(() => {
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     setIsDarkMode(prefersDark);
@@ -42,43 +61,49 @@ export const CivicEyeUserHome = () => {
     }
   };
 
- // In CivicEyeUserHome.jsx, replace the fetchLatestFeedback function with:
-
-const fetchLatestFeedback = async () => {
-  try {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      throw new Error("Authentication token not found");
-    }
-
-    // Use the getFeedbackByStatus endpoint to only fetch accepted feedback
-    const response = await axios.get(
-      "https://civiceye-1-mrbx.onrender.com/feedback/status/accepted", 
-      {
-        headers: { "x-auth-token": token },
+  const fetchLatestFeedback = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Authentication token not found");
       }
-    );
 
-    // Sort by newest first and remove the slice(0, 2) limitation
-    const formattedFeedbacks = response.data
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-      .map((item) => ({
-        id: item._id,
-        userName: item.userId?.name || "Anonymous",
-        description: item.description,
-        timestamp: new Date(item.timestamp).toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }),
-      }));
+      const response = await fetchWithRetry(() =>
+        axios.get(
+          "https://civiceye-1-mrbx.onrender.com/feedback/status/accepted",
+          {
+            headers: {
+              "x-auth-token": token,
+              "Content-Type": "application/json"
+            },
+          }
+        )
+      );
 
-    setLatestFeedbacks(formattedFeedbacks);
-  } catch (error) {
-    console.error("Error fetching feedback:", error);
-    setError("Failed to fetch feedback");
-  }
-};
+      if (!response.data) {
+        throw new Error("No data received from server");
+      }
+
+      const formattedFeedbacks = response.data
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .map((item) => ({
+          id: item._id,
+          userName: item.userId?.name || "Anonymous",
+          description: item.description,
+          timestamp: new Date(item.timestamp).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          }),
+        }));
+
+      setLatestFeedbacks(formattedFeedbacks);
+    } catch (error) {
+      console.error("Error fetching feedback:", error);
+      setError(error.response?.data?.message || error.message || "Failed to fetch feedback");
+      throw error;
+    }
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -283,8 +308,34 @@ const fetchLatestFeedback = async () => {
       {/* Main Content */}
       <main className="flex-1">
         {error && (
-          <div className="container mx-auto py-16 px-6 text-center text-red-500">
-            <p>{error}</p>
+          <div className={`container mx-auto py-16 px-6 text-center ${isDarkMode ? "bg-gray-800" : "bg-white"} rounded-lg shadow-md`}>
+            <div className="max-w-md mx-auto">
+              <div className="flex justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold mb-2">Oops! Something went wrong</h3>
+              <p className="mb-4 text-red-500">{error}</p>
+              <div className="flex justify-center space-x-4">
+                <button
+                  onClick={() => {
+                    setError(null);
+                    setLoading(true);
+                    fetchLatestFeedback().finally(() => setLoading(false));
+                  }}
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+                >
+                  Retry
+                </button>
+                <button
+                  onClick={() => navigate('/home')}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition"
+                >
+                  Go Home
+                </button>
+              </div>
+            </div>
           </div>
         )}
         {!loading && !error && (
@@ -449,11 +500,10 @@ const fetchLatestFeedback = async () => {
                       </motion.div>
                     ))
                   ) : (
-                    <div className={`${isDarkMode ? "bg-gray-700" : "bg-white"} p-6 rounded-xl shadow-lg text-center col-span-2`}>
+                    <div className={`${isDarkMode ? "bg-gray-700" : "bg-white"} p-6 rounded-xl shadow-lg text-center col-span-3`}>
                       <p className={isDarkMode ? "text-gray-300" : "text-gray-600"}>No feedback available yet.</p>
                     </div>
                   )}
-
                   {/* Feedback Form */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
