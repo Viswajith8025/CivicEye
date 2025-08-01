@@ -23,7 +23,7 @@ export const CivicEyeComplaintList = () => {
       }
 
       const response = await axios.get(
-        'https://civiceye-1-mrbx.onrender.com/complaint/list',
+        'https://civiceye-backend-7le4.onrender.com/complaint/list',
         {
           headers: {
             "x-auth-token": token,

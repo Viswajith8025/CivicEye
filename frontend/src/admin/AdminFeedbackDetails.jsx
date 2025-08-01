@@ -26,7 +26,7 @@ export const AdminFeedbackDetails = () => {
           throw new Error("Authentication token not found");
         }
 
-        const response = await axios.get(`https://civiceye-1-mrbx.onrender.com/feedback/all`, {
+        const response = await axios.get(`https://civiceye-backend-7le4.onrender.com/feedback/all`, {
           headers: { "x-auth-token": token },
         });
 
@@ -84,7 +84,7 @@ export const AdminFeedbackDetails = () => {
 
       const statusToSend = newStatus.toLowerCase();
       const response = await axios.put(
-        "https://civiceye-1-mrbx.onrender.com/feedback/updatestatus",
+        "https://civiceye-backend-7le4.onrender.com/feedback/updatestatus",
         { feedbackId: id, status: statusToSend },
         { headers: { "x-auth-token": token } }
       );

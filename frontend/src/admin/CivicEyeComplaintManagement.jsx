@@ -20,7 +20,7 @@ export const CiviEyeComplaintManagement = () => {
       const getUserData = async () => {
         try {
           const response = await axios.get(
-            `https://civiceye-1-mrbx.onrender.com/user/viewuser/${userId}`
+            `https://civiceye-backend-7le4.onrender.com/user/viewuser/${userId}`
           );
 
           if (response.data) {
@@ -47,7 +47,7 @@ export const CiviEyeComplaintManagement = () => {
         }
 
         const response = await axios.get(
-          "https://civiceye-1-mrbx.onrender.com/complaint/alllist",
+          "https://civiceye-backend-7le4.onrender.com/complaint/alllist",
           {
             headers: {
               "x-auth-token": token,

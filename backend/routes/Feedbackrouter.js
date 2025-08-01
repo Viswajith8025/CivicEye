@@ -20,7 +20,10 @@ feedbackrouter.get("/all", auth, getAllFeedback);
 feedbackrouter.put("/updatestatus", auth, updateFeedbackStatus);
 
 // ✅ Correct GET route to get feedbacks by status
-feedbackrouter.get("/status/:status", auth, getFeedbackByStatus);
+feedbackrouter.get("/status/:status", (req, res, next) => {
+  console.log("✅ Route hit:", req.originalUrl);
+  next();
+}, getFeedbackByStatus);
 
 // Route to get feedback count by status
 feedbackrouter.get("/countbystatus", auth, getFeedbackCountByStatus);

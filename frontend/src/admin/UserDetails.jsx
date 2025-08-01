@@ -25,7 +25,7 @@ export const UserDetails = () => {
       }
 
       const response = await axios.get(
-        `https://civiceye-1-mrbx.onrender.com/user/details/${id}`,
+        `https://civiceye-backend-7le4.onrender.com/user/details/${id}`,
         {
           headers: {
             "x-auth-token": token,
@@ -59,7 +59,7 @@ export const UserDetails = () => {
       console.log(token);
       console.log(id);
       console.log(UserId);
-      await axios.put(`https://civiceye-1-mrbx.onrender.com/user/deleted/${UserId}`,{}, {
+      await axios.put(`https://civiceye-backend-7le4.onrender.com/user/deleted/${UserId}`,{}, {
         headers: {
           "x-auth-token": token,
         },

@@ -48,7 +48,7 @@ export const CivicEyeOverview = () => {
         throw new Error("Authentication token not found");
       }
 
-      const response = await axios.get("https://civiceye-1-mrbx.onrender.com/feedback/countbystatus", {
+      const response = await axios.get("https://civiceye-backend-7le4.onrender.com/feedback/countbystatus", {
         headers: { "x-auth-token": token },
       });
       setFeedbackStats(response.data);
@@ -67,7 +67,7 @@ export const CivicEyeOverview = () => {
       }
 
       // Fetch feedback
-      const feedbackResponse = await axios.get("https://civiceye-1-mrbx.onrender.com/feedback/all", {
+      const feedbackResponse = await axios.get("https://civiceye-backend-7le4.onrender.com/feedback/all", {
         headers: { "x-auth-token": token },
       });
 
@@ -89,7 +89,7 @@ export const CivicEyeOverview = () => {
       setRecentFeedback(formattedFeedback);
 
       // Fetch complaints
-      const complaintResponse = await axios.get("https://civiceye-1-mrbx.onrender.com/complaint/alllist", {
+      const complaintResponse = await axios.get("https://civiceye-backend-7le4.onrender.com/complaint/alllist", {
         headers: { "x-auth-token": token },
       });
 

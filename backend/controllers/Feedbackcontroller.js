@@ -68,22 +68,28 @@ export const updateFeedbackStatus = async (req, res) => {
 };
 
 // Get Feedback by Status
+// In Feedbackcontroller.js, update getFeedbackByStatus
 export const getFeedbackByStatus = async (req, res) => {
     try {
         const { status } = req.params;
+        console.log(`Fetching feedback with status: ${status}`); // Add logging
 
         if (!["pending", "accepted", "rejected"].includes(status)) {
             return res.status(400).json({ message: "Invalid status value" });
         }
 
         const feedbacks = await feedback.find({ status }).populate("userId", "name email");
+        console.log(`Found ${feedbacks.length} feedbacks with status ${status}`); // Add logging
         res.status(200).json(feedbacks);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error retrieving feedback", error });
+        console.error("Detailed error:", error); // More detailed error logging
+        res.status(500).json({ 
+            message: "Error retrieving feedback", 
+            error: error.message, // Include error message
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+        });
     }
 };
-
 export async function getFeedbackCountByStatus(req, res) {
     try {
         const feedbackList = await feedback.find({}); // Assuming `feedback` is your Feedback model

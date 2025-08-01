@@ -40,7 +40,7 @@ export const CivicEyeSignUp = () => {
     try {
       console.table(signupData);
       const response = await axios.post(
-        "https://civiceye-1-mrbx.onrender.com/user/register",
+        "https://civiceye-backend-7le4.onrender.com/user/register",
         signupData
       );
       console.log(response.data);

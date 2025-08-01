@@ -27,7 +27,7 @@ export const AdminComplaintDetail = () => {
       }
 
       const response = await axios.get(
-        `https://civiceye-1-mrbx.onrender.com/complaint/admin/detail/${id}`,
+        `https://civiceye-backend-7le4.onrender.com/complaint/admin/detail/${id}`,
         {
           headers: {
             "x-auth-token": token,
@@ -78,7 +78,7 @@ export const AdminComplaintDetail = () => {
     if (!complaint || !complaint.proof) return null;
     
     // Get the server URL (assuming uploads are served from backend)
-    const serverUrl = 'https://civiceye-1-mrbx.onrender.com';
+    const serverUrl = 'https://civiceye-backend-7le4.onrender.com';
     
     // Extract the file path (remove any absolute path and keep relative path)
     const filePath = complaint.proof.replace(/^.*[\\\/]uploads[\\\/]/, '/uploads/');
@@ -163,7 +163,7 @@ export const AdminComplaintDetail = () => {
       }
 
       const response = await axios.put(
-        `https://civiceye-1-mrbx.onrender.com//complaint/update/${id}`,
+        `https://civiceye-backend-7le4.onrender.com//complaint/update/${id}`,
         { status: newStatus },
         {
           headers: {

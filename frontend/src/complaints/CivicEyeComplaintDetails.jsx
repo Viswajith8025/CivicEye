@@ -26,7 +26,7 @@ export const CivicEyeComplaintDetails = () => {
       }
 
       const response = await axios.get(
-        `https://civiceye-1-mrbx.onrender.com/complaint/detail/${id}`,
+        `https://civiceye-backend-7le4.onrender.com/complaint/detail/${id}`,
         {
           headers: {
             "x-auth-token": token,
@@ -69,7 +69,7 @@ export const CivicEyeComplaintDetails = () => {
       }
 
       await axios.delete(
-        `https://civiceye-1-mrbx.onrender.com/complaint/delete/${id}`,
+        `https://civiceye-backend-7le4.onrender.com/complaint/delete/${id}`,
         {
           headers: {
             "x-auth-token": token,
@@ -107,7 +107,7 @@ export const CivicEyeComplaintDetails = () => {
  const renderProofMedia = () => {
   if (!complaint || !complaint.proof) return null;
 
-  const serverUrl = 'https://civiceye-1-mrbx.onrender.com';
+  const serverUrl = 'https://civiceye-backend-7le4.onrender.com';
   const fileName = complaint.proof.split('/').pop(); // Extract only filename
   const mediaUrl = `${serverUrl}/uploads/${fileName}`;
 

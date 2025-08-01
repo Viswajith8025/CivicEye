@@ -81,7 +81,7 @@ export const CivicEyeRegisterComplaint = () => {
 
       // Send request to backend
       const response = await axios.post(
-        "https://civiceye-1-mrbx.onrender.com/complaint/register",
+        "https://civiceye-backend-7le4.onrender.com/complaint/register",
         submitData,
         {
           headers: {

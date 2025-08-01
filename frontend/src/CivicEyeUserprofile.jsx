@@ -32,7 +32,7 @@ export const CivicEyeUserprofile = () => {
     }
 
     axios
-      .get(`https://civiceye-1-mrbx.onrender.com/user/profile/${userId}`, {
+      .get(`https://civiceye-backend-7le4.onrender.com/user/profile/${userId}`, {
         headers: { "x-auth-token": token },
       })
       .then((res) => {
@@ -84,7 +84,7 @@ export const CivicEyeUserprofile = () => {
   };
 
  axios
-  .put(`https://civiceye-1-mrbx.onrender.com/user/profile/update/${userId}`, backendFormData, {
+  .put(`https://civiceye-backend-7le4.onrender.com/user/profile/update/${userId}`, backendFormData, {
     headers: { "x-auth-token": token },
   })
 

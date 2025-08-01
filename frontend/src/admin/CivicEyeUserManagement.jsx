@@ -20,7 +20,7 @@ export const CivicEyeUserManagement = () => {
           throw new Error("Authentication token not found");
         }
 
-        const response = await axios.get("https://civiceye-1-mrbx.onrender.com/user/allusers", {
+        const response = await axios.get("https://civiceye-backend-7le4.onrender.com/user/allusers", {
           headers: {
             "x-auth-token": token,
           },

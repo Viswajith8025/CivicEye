@@ -35,7 +35,7 @@ export const CivicEyeLoginPage = () => {
     
     try {
       console.table(loginData);
-      const response = await axios.post('https://civiceye-1-mrbx.onrender.com/user/login', loginData);
+      const response = await axios.post('https://civiceye-backend-7le4.onrender.com/user/login', loginData);
 
       console.log(response);
 
