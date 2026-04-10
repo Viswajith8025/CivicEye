@@ -1,1 +1,41 @@
 @import "tailwindcss";
+
+@theme {
+  --color-primary: #4338CA;
+  --color-secondary: #94A3B8;
+  --color-accent-dark: #1E1B4B;
+  --color-bgColor: #F8FAFC;
+  --color-neutral-light: #FFFFFF;
+
+  --font-sans: "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-bgColor text-accent-dark font-sans antialiased selection:bg-primary/20;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight text-accent-dark uppercase;
+  }
+}
+
+@layer components {
+  .section-container {
+    @apply max-w-7xl mx-auto px-10 md:px-20;
+  }
+  
+  .governance-card {
+    @apply bg-white border border-slate-200 shadow-sm transition-all duration-300 hover:border-primary/20 hover:shadow-md;
+  }
+
+  .btn-official {
+    @apply px-10 py-4 rounded-sm font-bold transition-all duration-300 relative overflow-hidden flex items-center justify-center gap-2 active:scale-95;
+    @apply bg-primary text-white shadow-sm hover:bg-accent-dark;
+  }
+
+  .registry-row {
+    @apply flex items-center py-4 border-b border-slate-100 font-mono text-[10px] hover:bg-slate-50 transition-colors px-6;
+  }
+}
