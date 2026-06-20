@@ -1,364 +1,176 @@
-import logo from "./assets/celogofull.png";
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import { Award, Download, Loader2, Pencil, Save, Trash2, X, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import toast, { Toaster } from "react-hot-toast";
+import api from "./lib/apiClient";
+import { CitizenLayout } from "./components/layout/CitizenLayout";
+import { LoadingSpinner } from "./components/ui/LoadingSpinner";
 
 export const CivicEyeUserprofile = () => {
-  const [formData, setFormData] = useState({
-    fullName: "",
-    mobileNumber: "",
-    emailId: "",
-    dob: "",
-    state: "",
-    address: "",
-    idProofType: "",
-    idProofNumber: "",
-  });
-  const [isEditing, setIsEditing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
   const navigate = useNavigate();
-
-  const userId = localStorage.getItem("id");
-  const token = localStorage.getItem("token");
+  const [form, setForm] = useState({
+    name: "", mobile: "", email: "", dob: "", state: "", address: "", idProofType: "", idProofNumber: "",
+  });
+  const [user, setUser] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (!userId || !token) {
-      console.error("User ID or Token missing!");
-      alert("User ID or token missing");
-      setIsLoading(false);
-      return;
-    }
-
-    axios
-      .get(`https://civiceye-backend-7le4.onrender.com/user/profile/${userId}`, {
-        headers: { "x-auth-token": token },
-      })
+    api.get("/user/profile")
       .then((res) => {
-        setFormData({
-          fullName: res.data.name || "",
-          mobileNumber: res.data.mobile || "",
-          emailId: res.data.email || "",
+        setUser(res.data);
+        setForm({
+          name: res.data.name || "",
+          mobile: res.data.mobile || "",
+          email: res.data.email || "",
           dob: res.data.dob ? res.data.dob.split("T")[0] : "",
           state: res.data.state || "",
           address: res.data.address || "",
           idProofType: res.data.idProofType || "",
           idProofNumber: res.data.idProofNumber || "",
         });
-        setIsLoading(false);
       })
-      .catch((err) => {
-        console.error("Error fetching user data:", err);
-        setIsLoading(false);
-      });
-  }, [userId, token]);
+      .catch(() => toast.error("Failed to load profile"))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const update = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.put("/user/profile/update", form);
+      toast.success("Profile updated");
+      setEditing(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Update failed");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleEdit = () => {
-    setIsEditing(true);
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await api.get("/user/export", { responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "civiceye-my-data.json";
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Data exported");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Export failed");
+    } finally {
+      setExporting(false);
+    }
   };
 
- const handleSubmit = (e) => {
-  e.preventDefault();
-  if (!userId || !token) {
-    alert("User not authenticated!");
-    return;
+  const handleDeleteRequest = async () => {
+    if (!window.confirm("Deactivate your account? You can contact support within 30 days to restore.")) return;
+    setDeleting(true);
+    try {
+      await api.post("/user/request-deletion");
+      toast.success("Account deactivation requested");
+      localStorage.clear();
+      navigate("/login");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Request failed");
+      setDeleting(false);
+    }
+  };
+
+  if (loading) {
+    return <CitizenLayout title="Profile"><LoadingSpinner /></CitizenLayout>;
   }
 
-  setIsLoading(true);
-  
-  // Map frontend field names to backend field names
-  const backendFormData = {
-    name: formData.fullName,
-    mobile: formData.mobileNumber,
-    email: formData.emailId,
-    dob: formData.dob,
-    state: formData.state,
-    address: formData.address,
-    idProofType: formData.idProofType,
-    idProofNumber: formData.idProofNumber
-  };
-
- axios
-  .put(`https://civiceye-backend-7le4.onrender.com/user/profile/update/${userId}`, backendFormData, {
-    headers: { "x-auth-token": token },
-  })
-
-    .then(() => {
-      toast.success("Profile updated successfully!");
-      setIsEditing(false);
-      setIsLoading(false);
-    })
-    .catch((err) => {
-      console.error("Error updating profile:", err);
-      toast.error(err.response?.data?.message || "Failed to update profile");
-      setIsLoading(false);
-    });
-};
-  const handleCancel = () => {
-    setIsEditing(false);
-  };
+  const fields = [
+    { name: "name", label: "Full Name", type: "text" },
+    { name: "mobile", label: "Mobile", type: "tel" },
+    { name: "email", label: "Email", type: "email" },
+    { name: "dob", label: "Date of Birth", type: "date" },
+    { name: "state", label: "State", type: "text" },
+    { name: "idProofType", label: "ID Proof Type", type: "text" },
+    { name: "idProofNumber", label: "ID Proof Number", type: "text" },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <Toaster/>
-          <div>
-            <button 
-            onClick={()=>navigate(-1)}
-            className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-lg hover:bg-gray-700"
-            >
-              Back
-            </button>
-          </div>
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white shadow-xl rounded-2xl overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-blue-700 to-purple-600 p-6 sm:p-8">
-            <div className="flex justify-between items-center">
-              <div>
-                <h1 className="text-white text-2xl font-bold">User Profile</h1>
-                <p className="text-blue-100 mt-1">
-                  Manage your personal information
-                </p>
+    <CitizenLayout title="Profile" subtitle="Manage your account and identity">
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div className="governance-card p-6 bg-gradient-to-br from-primary/10 to-transparent">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-primary text-white flex items-center justify-center text-2xl font-bold">
+              {form.name?.charAt(0)?.toUpperCase() || "U"}
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">{form.name}</h2>
+              <p className="text-sm text-slate-500">{form.email}</p>
+              <div className="flex gap-4 mt-2">
+                <span className="flex items-center gap-1 text-sm font-semibold text-amber-600"><Zap size={14} />{user?.points || 0} pts</span>
+                <span className="text-sm text-slate-500">{user?.reports || 0} reports</span>
               </div>
-              <img src={logo} alt="CivicEye Logo" className="h-10 md:h-12" />
             </div>
           </div>
+          {user?.achievements?.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-4">
+              {user.achievements.map((a) => (
+                <span key={a.id} className="flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-xs font-semibold">
+                  <Award size={12} />{a.title}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
 
-          {/* Content */}
-          <div className="p-6 sm:p-8">
-            {isLoading ? (
-              <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
-              </div>
+        <form onSubmit={handleSave} className="governance-card p-6 sm:p-8">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-semibold">Personal Information</h3>
+            {!editing ? (
+              <button type="button" onClick={() => setEditing(true)} className="btn-secondary !py-2 !px-4 text-xs">
+                <Pencil size={14} /> Edit
+              </button>
             ) : (
-              <form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                  {/* Full Name */}
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      name="fullName"
-                      value={formData.fullName}
-                      onChange={handleChange}
-                      placeholder="Enter your full name"
-                      className={`w-full rounded-lg border ${
-                        isEditing
-                          ? "border-gray-300"
-                          : "border-gray-200 bg-gray-50"
-                      } px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200`}
-                      disabled={!isEditing}
-                    />
-                  </div>
-
-                  {/* Date of Birth */}
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">
-                      Date of Birth
-                    </label>
-                    <input
-                      type="date"
-                      name="dob"
-                      value={formData.dob}
-                      onChange={handleChange}
-                      className={`w-full rounded-lg border ${
-                        isEditing
-                          ? "border-gray-300"
-                          : "border-gray-200 bg-gray-50"
-                      } px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200`}
-                      disabled={!isEditing}
-                    />
-                  </div>
-
-                  {/* Mobile Number */}
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">
-                      Mobile Number
-                    </label>
-                    <input
-                      type="tel"
-                      name="mobileNumber"
-                      value={formData.mobileNumber}
-                      onChange={handleChange}
-                      placeholder="Enter your mobile number"
-                      className={`w-full rounded-lg border ${
-                        isEditing
-                          ? "border-gray-300"
-                          : "border-gray-200 bg-gray-50"
-                      } px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200`}
-                      disabled={!isEditing}
-                    />
-                  </div>
-
-                  {/* Email */}
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      name="emailId"
-                      value={formData.emailId}
-                      onChange={handleChange}
-                      placeholder="Enter your email address"
-                      className={`w-full rounded-lg border ${
-                        isEditing
-                          ? "border-gray-300"
-                          : "border-gray-200 bg-gray-50"
-                      } px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200`}
-                      disabled={!isEditing}
-                    />
-                  </div>
-
-                  {/* ID Proof Number */}
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">
-                      ID Proof Number
-                    </label>
-                    <input
-                      type="text"
-                      name="idProofNumber"
-                      value={formData.idProofNumber}
-                      onChange={handleChange}
-                      placeholder="Enter your ID proof number"
-                      className={`w-full rounded-lg border ${
-                        isEditing
-                          ? "border-gray-300"
-                          : "border-gray-200 bg-gray-50"
-                      } px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200`}
-                      disabled={!isEditing}
-                    />
-                  </div>
-
-                  {/* State */}
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">
-                      State
-                    </label>
-                    <input
-                      type="text"
-                      name="state"
-                      value={formData.state}
-                      onChange={handleChange}
-                      placeholder="Enter your state"
-                      className={`w-full rounded-lg border ${
-                        isEditing
-                          ? "border-gray-300"
-                          : "border-gray-200 bg-gray-50"
-                      } px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200`}
-                      disabled={!isEditing}
-                    />
-                  </div>
-
-                  {/* ID Proof Type */}
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">
-                      ID Proof Type
-                    </label>
-                    <input
-                      type="text"
-                      name="idProofType"
-                      value={formData.idProofType}
-                      onChange={handleChange}
-                      placeholder="Enter your ID proof type"
-                      className={`w-full rounded-lg border ${
-                        isEditing
-                          ? "border-gray-300"
-                          : "border-gray-200 bg-gray-50"
-                      } px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200`}
-                      disabled={!isEditing}
-                    />
-                  </div>
-
-                  {/* Address */}
-                  <div className="space-y-1 md:col-span-2">
-                    <label className="text-sm font-medium text-gray-700">
-                      Address
-                    </label>
-                    <textarea
-                      name="address"
-                      value={formData.address}
-                      onChange={handleChange}
-                      placeholder="Enter your address"
-                      rows="3"
-                      className={`w-full rounded-lg border ${
-                        isEditing
-                          ? "border-gray-300"
-                          : "border-gray-200 bg-gray-50"
-                      } px-4 py-2.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200`}
-                      disabled={!isEditing}
-                    />
-                  </div>
-                </div>
-
-                {/* Buttons */}
-                <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
-                  {!isEditing ? (
-                    <button
-                      type="button"
-                      onClick={handleEdit}
-                      className="inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-                    >
-                      <svg
-                        className="w-5 h-5 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                        ></path>
-                      </svg>
-                      Edit Profile
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handleCancel}
-                        className="inline-flex justify-center items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        className="inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-                      >
-                        <svg
-                          className="w-5 h-5 mr-2"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M5 13l4 4L19 7"
-                          ></path>
-                        </svg>
-                        Save Changes
-                      </button>
-                    </>
-                  )}
-                </div>
-              </form>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setEditing(false)} className="btn-secondary !py-2 !px-4 text-xs"><X size={14} /> Cancel</button>
+                <button type="submit" disabled={saving} className="btn-primary !py-2 !px-4 text-xs">
+                  {saving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} Save
+                </button>
+              </div>
             )}
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            {fields.map((f) => (
+              <div key={f.name}>
+                <label className="block text-sm font-medium mb-1.5">{f.label}</label>
+                <input type={f.type} name={f.name} value={form[f.name]} onChange={update} disabled={!editing} className="input-field disabled:opacity-60" />
+              </div>
+            ))}
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium mb-1.5">Address</label>
+              <textarea name="address" value={form.address} onChange={update} disabled={!editing} rows={3} className="input-field resize-none disabled:opacity-60" />
+            </div>
+          </div>
+        </form>
+
+        <div className="governance-card p-6 space-y-4">
+          <h3 className="font-semibold">Privacy & data</h3>
+          <p className="text-sm text-slate-500">Download a copy of your data or request account deactivation.</p>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={handleExport} disabled={exporting} className="btn-secondary !py-2 !px-4 text-sm flex items-center gap-2">
+              {exporting ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />} Export my data
+            </button>
+            <button type="button" onClick={handleDeleteRequest} disabled={deleting} className="flex items-center gap-2 text-sm font-medium text-red-600 hover:underline">
+              {deleting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />} Request account deletion
+            </button>
           </div>
         </div>
       </div>
-    </div>
+    </CitizenLayout>
   );
 };

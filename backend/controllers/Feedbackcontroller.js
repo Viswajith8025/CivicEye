@@ -1,19 +1,21 @@
 import feedback from "../model/FeedbackSchema.js";
+import { parsePagination, paginatedResponse } from "../utilies/pagination.js";
 
 // Add Feedback
 export const addFeedback = async (req, res) => {
     try {
-        const { userId, description, status } = req.body;
+        const { description } = req.body;
+        const userId = req.user.userid;
 
-        if (!userId || !description) {
-            return res.status(400).json({ message: "User ID and description are required" });
+        if (!description || !description.trim()) {
+            return res.status(400).json({ message: "Description is required" });
         }
 
         const newFeedback = new feedback({
             userId,
-            description,
+            description: description.trim(),
             timestamp: new Date().toISOString(),
-            status: status || "pending" // Use provided status or default to "pending"
+            status: "pending",
         });
 
         await newFeedback.save();
@@ -27,11 +29,25 @@ export const addFeedback = async (req, res) => {
 // Get All Feedback
 export const getAllFeedback = async (req, res) => {
     try {
-        const feedbacks = await feedback.find().populate("userId", "name email");  // Populate user details
-        res.status(200).json(feedbacks);
+        const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 25 });
+        const [feedbacks, total] = await Promise.all([
+            feedback.find().populate("userId", "name email").sort({ timestamp: -1 }).skip(skip).limit(limit),
+            feedback.countDocuments(),
+        ]);
+        res.status(200).json(paginatedResponse(feedbacks, total, page, limit));
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error retrieving feedback", error });
+    }
+};
+
+export const getFeedbackById = async (req, res) => {
+    try {
+        const item = await feedback.findById(req.params.id).populate("userId", "name email");
+        if (!item) return res.status(404).json({ message: "Feedback not found" });
+        return res.status(200).json(item);
+    } catch (error) {
+        return res.status(500).json({ message: "Error retrieving feedback", error: error.message });
     }
 };
 // Update Feedback Status

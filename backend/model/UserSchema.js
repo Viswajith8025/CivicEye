@@ -1,60 +1,28 @@
 import mongoose from "mongoose";
-let userschema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true
+
+const userschema = new mongoose.Schema({
+  name: { type: String, required: true },
+  age: { type: String, required: true },
+  mobile: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  address: { type: String },
+  state: { type: String },
+  dob: { type: Date },
+  idProofType: { type: String },
+  idProofNumber: { type: String },
+  role: { type: String, enum: ["user", "admin"], default: "user" },
+  reports: { type: Number, default: 0 },
+  points: { type: Number, default: 0, index: true },
+  achievements: [
+    {
+      id: String,
+      title: String,
+      unlockedAt: { type: Date, default: Date.now },
     },
-    age: {
-        type: String,
-        required: true
-    },
-    mobile: {
-        type: String,
-        required: true
-    },
-    email: {
-        type: String,
-        required: true,
-        unique: true
-    },
-    password: {
-        type: String,
-        required: true
-    },
-    address: {
-        type: String,
-        required: false
-    },
-    state: {
-        type: String,
-        required: false
-    },
-    dob: {
-        type: Date,
-        required: false
-    },
-    idProofType: {
-        type: String,
-        required: false
-    },
-    idProofNumber: {
-        type: String,
-        required: false
-    },
-    role: {
-        type: String,
-        enum: ["user", "admin"],
-        default: "user"
-    },
-    reports: {
-        type: Number,
-        required: true,
-        default: 0,
-      },
-      deletestate: {
-        type:Boolean,
-        default: false,
-      }
-})
+  ],
+  deletestate: { type: Boolean, default: false },
+});
+
 const user = mongoose.model("user", userschema);
-export default user
+export default user;

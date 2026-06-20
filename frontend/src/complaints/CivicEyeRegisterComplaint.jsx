@@ -1,308 +1,216 @@
-import React, { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import logo from "../assets/celogofull.png";
-import toast, { Toaster } from "react-hot-toast";
+import { useQuery } from "@tanstack/react-query";
+import toast from "react-hot-toast";
+import { Camera, Loader2, MapPin, Navigation, Upload, AlertTriangle } from "lucide-react";
+import api from "../lib/apiClient";
+import { SEVERITY_LEVELS } from "../constants/categories";
+import { CitizenLayout } from "../components/layout/CitizenLayout";
+import { MapPicker } from "../components/map/ReportMap";
+
+const SEVERITY_HINTS = {
+  Pothole: "High", "Water Leakage": "High", "Streetlight Failure": "Medium",
+  "Waste Dumping": "Medium", "Traffic Violation": "Medium",
+};
+
+const DRAFT_KEY = "civiceye-report-draft";
 
 export const CivicEyeRegisterComplaint = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    description: "",
-    type: "",
-    location: "",
-  });
-  const [proofFile, setProofFile] = useState(null);
+  const fileRef = useRef(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [filePreview, setFilePreview] = useState(null);
-  const fileInputRef = useRef(null);
+  const [locating, setLocating] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [proofFile, setProofFile] = useState(null);
+  const [nearby, setNearby] = useState([]);
+  const [form, setForm] = useState({
+    type: "", severity: "Medium", location: "", description: "", lat: "", lng: "", isAnonymous: false,
+  });
+  const draftLoaded = useRef(false);
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setForm((f) => ({ ...f, ...parsed, isAnonymous: Boolean(parsed.isAnonymous) }));
+        toast.success("Draft restored");
+      }
+    } catch { /* ignore */ }
+    draftLoaded.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!draftLoaded.current) return;
+    const { type, severity, location, description, lat, lng, isAnonymous } = form;
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ type, severity, location, description, lat, lng, isAnonymous }));
+  }, [form]);
+
+  const { data: categoryData } = useQuery({
+    queryKey: ["report-categories"],
+    queryFn: () => api.get("/category").then((r) => r.data),
+  });
+
+  const reportCategories = categoryData?.grouped || [];
+
+  const update = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm((f) => {
+      const next = { ...f, [name]: type === "checkbox" ? checked : value };
+      if (name === "type" && SEVERITY_HINTS[value]) next.severity = SEVERITY_HINTS[value];
+      return next;
     });
   };
 
-  const handleFileChange = (e) => {
+  const fetchNearby = (lat, lng) => {
+    api.get("/complaint/nearby", { params: { lat, lng, radius: 1 } })
+      .then((res) => setNearby(res.data))
+      .catch(() => {});
+  };
+
+  const handleFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
+    if (file.size > 50 * 1024 * 1024) { toast.error("Max 50MB"); return; }
     setProofFile(file);
-
-    // Create preview for images
-    if (file.type.startsWith('image/')) {
+    if (file.type.startsWith("image/")) {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setFilePreview({
-          type: 'image',
-          src: e.target.result
-        });
-      };
+      reader.onload = (ev) => setPreview({ type: "image", src: ev.target.result });
       reader.readAsDataURL(file);
-    } 
-    // Create preview for videos
-    else if (file.type.startsWith('video/')) {
-      setFilePreview({
-        type: 'video',
-        src: URL.createObjectURL(file)
-      });
+    } else {
+      setPreview({ type: "video", src: URL.createObjectURL(file) });
     }
+  };
+
+  const useMyLocation = () => {
+    if (!navigator.geolocation) { toast.error("GPS not supported"); return; }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        setForm((f) => ({ ...f, lat: lat.toFixed(6), lng: lng.toFixed(6), location: f.location || `Near ${lat.toFixed(4)}, ${lng.toFixed(4)}` }));
+        fetchNearby(lat, lng);
+        toast.success("Location pinned");
+        setLocating(false);
+      },
+      () => { toast.error("Enable location access"); setLocating(false); },
+      { enableHighAccuracy: true }
+    );
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!proofFile) { toast.error("Photo/video proof required"); return; }
+    if (!form.lat) { toast.error("Pin location on the map or use GPS"); return; }
     setLoading(true);
-    setError("");
-
     try {
-      // Get token from localStorage
-      const token = localStorage.getItem("token");
-
-      if (!token) {
-        setError("You must be logged in to register a complaint");
-        setLoading(false);
-        return;
-      }
-
-      // Check if proof file is selected
-      if (!proofFile) {
-        setError("Please upload a proof file (image or video)");
-        setLoading(false);
-        return;
-      }
-
-      // Create FormData object for multipart/form-data
-      const submitData = new FormData();
-      submitData.append("description", formData.description);
-      submitData.append("type", formData.type);
-      submitData.append("location", formData.location);
-      submitData.append("proof", proofFile);
-
-      // Send request to backend
-      const response = await axios.post(
-        "https://civiceye-backend-7le4.onrender.com/complaint/register",
-        submitData,
-        {
-          headers: {
-            "x-auth-token": token,
-            // Don't set Content-Type, it will be set automatically with boundary
-          },
-        }
-      );
-
+      const data = new FormData();
+      Object.entries(form).forEach(([k, v]) => data.append(k, v));
+      data.append("proof", proofFile);
+      await api.post("/complaint/register", data);
+      localStorage.removeItem(DRAFT_KEY);
+      toast.success("Report submitted!");
+      navigate("/complaintlist");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to submit");
+    } finally {
       setLoading(false);
-
-      // Show success message and redirect to complaints list
-      toast.success(response.data.message);
-      setTimeout(() => {
-        navigate('/complaintlist')
-      }, 1000);
-    } catch (error) {
-      setLoading(false);
-      setError(
-        error.response?.data?.message ||
-          "Failed to register complaint. Please try again."
-      );
     }
-  };
-
-  const renderFilePreview = () => {
-    if (!filePreview) return null;
-
-    if (filePreview.type === 'image') {
-      return (
-        <div className="mt-2">
-          <img 
-            src={filePreview.src} 
-            alt="Proof preview" 
-            className="w-full max-h-40 object-contain rounded-md"
-          />
-        </div>
-      );
-    } else if (filePreview.type === 'video') {
-      return (
-        <div className="mt-2">
-          <video 
-            src={filePreview.src} 
-            controls
-            className="w-full max-h-40 object-contain rounded-md"
-          />
-        </div>
-      );
-    }
-    return null;
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <Toaster/>
-      {/* Back button in top left corner */}
-      <div className="fixed top-4 left-4 z-10">
-        <button
-          onClick={() => navigate(-1)}
-          className="px-3 py-1 text-sm text-white bg-blue-800 rounded-full shadow-lg hover:bg-blue-700 transition-colors flex items-center"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back
-        </button>
-      </div>
-      
-      {/* Header with Logo and Title */}
-      <header className="bg-blue-600 text-white py-4 shadow-md">
-        <div className="max-w-lg mx-auto px-4 flex items-center justify-center">
-          <div className="flex flex-col items-center">
-            {/* Logo and text container */}
-            <img src={logo} alt="CivicEye" className="h-10 mb-1" />
-            <p className="text-xs text-blue-100">Community Safety Reporting System</p>
+    <CitizenLayout title="Report an Issue" subtitle="Pin it on the map, add proof, and we'll take it from there">
+      <div className="max-w-3xl mx-auto space-y-6">
+        {nearby.length > 0 && (
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 text-sm">
+            <AlertTriangle className="text-amber-600 shrink-0" size={18} />
+            <div>
+              <p className="font-semibold text-amber-800">{nearby.length} similar open report{nearby.length > 1 ? "s" : ""} nearby</p>
+              <p className="text-amber-700/80 text-xs mt-0.5">Orange dots on the map show existing reports. You can still submit yours.</p>
+            </div>
           </div>
-        </div>
-      </header>
+        )}
 
-      <div className="max-w-lg mx-auto p-4 mb-8">
-        <h2 className="text-xl font-bold mt-6 mb-4 px-2 text-center text-blue-800">Report an Incident</h2>
-        
-        <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-100">
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md border border-red-200 flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-red-500" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-gray-700 font-medium mb-2" htmlFor="type">
-                Incident Type
-              </label>
-              <select
-                id="type"
-                name="type"
-                value={formData.type}
-                onChange={handleChange}
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                required
-              >
-                <option value="">Select Type</option>
-                <optgroup label="Vehicle Related">
-                  <option>Riding without helmets</option>
-                  <option>Reckless driving</option>
-                  <option>Signal line crossing</option>
-                  <option>Triples</option>
-                  <option>Mirror</option>
-                  <option>Using mobile while driving</option>
-                  <option>Not giving pass to emergency vehicles</option>
-                  <option>Wrong way</option>
-                  <option>Underage driving</option>
-                  <option>Driving without seatbelt</option>
-                  <option>Overloading</option>
-                  <option>No parking</option>
-                  <option>Driving on footpath</option>
-                  <option>Towing</option>
-                  <option>Carrying goods unsafe</option>
+        <form onSubmit={handleSubmit} className="governance-card p-6 sm:p-8 space-y-6">
+          <div>
+            <label className="block text-sm font-medium mb-2">What's the problem? *</label>
+            <select name="type" value={form.type} onChange={update} className="input-field" required>
+              <option value="">Select issue type</option>
+              {reportCategories.map((g) => (
+                <optgroup key={g.group} label={g.group}>
+                  {g.items.map((item) => <option key={item} value={item}>{item}</option>)}
                 </optgroup>
-                <optgroup label="Public Order Issues">
-                  <option>Waste dumping</option>
-                  <option>Public nuisance</option>
-                  <option>Theft</option>
-                  <option>Shoplifting</option>
-                  <option>Smoking in public</option>
-                  <option>Overcharging fare</option>
-                </optgroup>
-              </select>
-            </div>
+              ))}
+            </select>
+          </div>
 
-            <div>
-              <label className="block text-gray-700 font-medium mb-2" htmlFor="location">
-                Location
-              </label>
-              <input
-                type="text"
-                id="location"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                placeholder="Enter location"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-gray-700 font-medium mb-2" htmlFor="description">
-                Description
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                rows="4"
-                placeholder="Describe what happened"
-                required
-              ></textarea>
-            </div>
-
-            <div>
-              <label className="block text-gray-700 font-medium mb-2" htmlFor="proof">
-                Proof (Image or Video)
-              </label>
-              <div className="flex items-center">
-                <input
-                  type="file"
-                  id="proof"
-                  name="proof"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  className="hidden"
-                  accept="image/*,video/*"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current.click()}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-                >
-                  Choose File
+          <div>
+            <label className="block text-sm font-medium mb-2">How urgent? *</label>
+            <div className="grid grid-cols-4 gap-2">
+              {SEVERITY_LEVELS.map((s) => (
+                <button key={s} type="button" onClick={() => setForm({ ...form, severity: s })}
+                  className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${form.severity === s ? "border-teal-500 bg-teal-50 text-teal-700" : "border-slate-200 text-slate-500"}`}>
+                  {s}
                 </button>
-                <span className="ml-3 text-sm text-gray-500">
-                  {proofFile ? proofFile.name : "No file chosen"}
-                </span>
-              </div>
-              {renderFilePreview()}
-              <p className="text-xs text-gray-500 mt-1">
-                Upload an image or video as proof (max 50MB)
-              </p>
+              ))}
             </div>
+          </div>
 
-            <div className="mt-8">
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium shadow-md transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Submitting...
-                  </span>
-                ) : "Submit Report"}
+          <div>
+            <label className="block text-sm font-medium mb-2">Pin on map *</label>
+            <MapPicker
+              lat={form.lat ? parseFloat(form.lat) : null}
+              lng={form.lng ? parseFloat(form.lng) : null}
+              nearby={nearby}
+              onLocationChange={(lat, lng) => {
+                setForm((f) => ({ ...f, lat: lat.toFixed(6), lng: lng.toFixed(6) }));
+                fetchNearby(lat, lng);
+              }}
+              height="280px"
+            />
+            <div className="flex gap-2 mt-3">
+              <div className="relative flex-1">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input name="location" value={form.location} onChange={update} className="input-field pl-10" placeholder="Street, landmark, area" required />
+              </div>
+              <button type="button" onClick={useMyLocation} disabled={locating} className="btn-secondary !px-4 shrink-0">
+                {locating ? <Loader2 className="animate-spin" size={18} /> : <Navigation size={18} />}
               </button>
             </div>
-          </form>
-          
-          <p className="mt-6 text-sm text-gray-500 text-center">
-            Your information will be handled confidentially
-          </p>
-        </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Describe the issue *</label>
+            <textarea name="description" value={form.description} onChange={update} rows={4} className="input-field resize-none" placeholder="When did you notice it? How bad is it?" required />
+          </div>
+
+          <label className="flex items-start gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer">
+            <input type="checkbox" name="isAnonymous" checked={form.isAnonymous} onChange={update} className="mt-1" />
+            <div>
+              <p className="text-sm font-medium">Report anonymously</p>
+              <p className="text-xs text-slate-500">Your name won&apos;t appear in the community feed. Officials still see your identity.</p>
+            </div>
+          </label>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Photo / video proof *</label>
+            <input ref={fileRef} type="file" accept="image/*,video/*" onChange={handleFile} className="hidden" />
+            <button type="button" onClick={() => fileRef.current?.click()} className="w-full border-2 border-dashed border-slate-200 rounded-2xl p-6 hover:border-teal-400 transition-all text-center">
+              {preview ? (
+                preview.type === "image"
+                  ? <img src={preview.src} alt="" className="max-h-40 mx-auto rounded-xl" />
+                  : <video src={preview.src} controls className="max-h-40 mx-auto rounded-xl" />
+              ) : (
+                <div className="text-slate-500 flex flex-col items-center gap-2"><Upload size={28} /><span className="text-sm">Tap to upload</span></div>
+              )}
+            </button>
+          </div>
+
+          <button type="submit" disabled={loading} className="btn-primary w-full">
+            {loading ? <><Loader2 className="animate-spin" size={18} /> Submitting...</> : <><Camera size={18} /> Submit Report</>}
+          </button>
+        </form>
       </div>
-    </div>
+    </CitizenLayout>
   );
 };

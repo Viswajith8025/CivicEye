@@ -1,235 +1,147 @@
-import React from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { 
-  ShieldCheck, 
-  MapPin, 
-  Search, 
-  ArrowRight, 
-  Eye, 
-  Shield, 
-  Clock, 
-  Lock,
-  Flag,
-  Globe,
-  Database,
-  SearchCode,
-  LineChart,
-  Network,
-  Scale
+import axios from "axios";
+import {
+  ArrowRight, Camera, CheckCircle2, MapPin, Shield, Users, Zap,
 } from "lucide-react";
-import logo from "./assets/celogofull.png";
+import { Logo } from "./components/common/Logo";
+import { ThemeToggle } from "./components/common/ThemeToggle";
+
+const ISSUE_TYPES = [
+  { emoji: "🕳️", label: "Potholes", count: "2,400+" },
+  { emoji: "💡", label: "Streetlights", count: "890+" },
+  { emoji: "🗑️", label: "Waste dumping", count: "1,100+" },
+  { emoji: "💧", label: "Water leaks", count: "650+" },
+  { emoji: "🚗", label: "Traffic issues", count: "1,800+" },
+  { emoji: "🌳", label: "Tree hazards", count: "320+" },
+];
 
 export const CivicEyeHome = () => {
-  const reports = [
-    { block: "B-88220", type: "Traffic Incident", sector: "Sector Alpha-7", status: "VERIFIED", timestamp: "14:22:10 UTC" },
-    { block: "B-88219", type: "Parking Conflict", sector: "Industrial West", status: "RESOLVED", timestamp: "13:58:45 UTC" },
-    { block: "B-88218", type: "Noise Violation", sector: "Residential 04", status: "PENDING", timestamp: "13:42:12 UTC" },
-    { block: "B-88217", type: "Sanitation Issue", sector: "Commercial Core", status: "VERIFIED", timestamp: "12:15:33 UTC" },
-  ];
+  const [stats, setStats] = useState({ total: 0, resolved: 0, citizens: 0, resolutionRate: 0 });
+
+  useEffect(() => {
+    axios.get(`${import.meta.env.VITE_API_URL}/complaint/public-stats`)
+      .then((res) => setStats(res.data))
+      .catch(() => {});
+  }, []);
 
   return (
-    <div className="bg-bgColor min-h-screen flex selection:bg-primary/10">
-      
-      {/* 🧭 THE CONTROL PANEL (PERSISTENT SLIM SIDEBAR) */}
-      <aside className="fixed left-0 top-0 h-full w-20 md:w-24 bg-accent-dark z-[100] flex flex-col items-center py-10 shadow-2xl">
-        <Link to="/" className="mb-20">
-          <img src={logo} alt="CivicEye" className="h-4 brightness-0 invert opacity-40 hover:opacity-100 transition-opacity" />
-        </Link>
-        
-        <nav className="flex-1 flex flex-col gap-12">
-          <Link to="/complaints" className="p-3 text-white/40 hover:text-white transition-colors">
-            <Globe size={20} />
-          </Link>
-          <Link to="/about" className="p-3 text-white/40 hover:text-white transition-colors">
-            <Scale size={20} />
-          </Link>
-          <Link to="/login" className="p-3 text-white/40 hover:text-white transition-colors mt-auto">
-            <Lock size={20} />
-          </Link>
-        </nav>
-
-        <div className="mt-8 pt-8 border-t border-white/5 flex flex-col items-center gap-6">
-          <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+    <div className="min-h-screen bg-bgColor dark:bg-slate-950">
+      <header className="sticky top-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800">
+        <div className="section-container flex items-center justify-between h-16">
+          <Link to="/"><Logo className="h-7 dark:brightness-0 dark:invert" /></Link>
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
+            <Link to="/about" className="hover:text-teal-600 transition-colors">About</Link>
+            <Link to="/login" className="hover:text-teal-600 transition-colors">Sign in</Link>
+            <Link to="/signup" className="btn-primary !py-2.5 !px-5 text-sm">Report an Issue</Link>
+          </nav>
+          <ThemeToggle />
         </div>
-      </aside>
+      </header>
 
-      {/* MAIN CONTENT AREA */}
-      <main className="flex-1 ml-20 md:ml-24">
-        
-        {/* 🏛️ HERO: INFRASTRUCTURE HUB */}
-        <section className="relative pt-32 pb-40 md:pt-48 md:pb-60 bg-white border-b border-slate-200">
-          <div className="section-container relative z-10 flex flex-col lg:flex-row lg:items-end justify-between gap-20">
-            <motion.div
-              initial={{ opacity: 0, x: -30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
-              className="max-w-3xl space-y-12"
-            >
-              <div className="flex items-center gap-3 text-primary font-bold text-[10px] tracking-[0.4em] uppercase">
-                <Network size={14} />
-                <span>Civilian Oversight Infrastructure</span>
-              </div>
-
-              <h1 className="text-6xl md:text-9xl font-bold tracking-tighter text-accent-dark leading-[0.8] uppercase">
-                Official <br />
-                <span className="text-secondary">Governance.</span>
-              </h1>
-
-              <p className="max-w-xl text-slate-500 font-medium text-lg leading-relaxed">
-                A high-integrity digital framework for community accountability. 
-                Securing civilian reporting through cryptographic standards 
-                and verified institutional resolution.
-              </p>
-
-              <div className="flex pt-6">
-                <Link to="/signup" className="btn-official">
-                  Submit Verifiable Report
-                  <ArrowRight size={18} />
-                </Link>
-              </div>
-            </motion.div>
-
-            {/* Sidebar Branding / Sub-text */}
-            <div className="hidden lg:block border-l-2 border-slate-100 pl-12 max-w-[240px] space-y-8">
-              <div className="space-y-2">
-                <span className="font-mono text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">Status // Active</span>
-                <p className="text-[10px] font-bold text-slate-500 leading-relaxed uppercase">Established standards for community oversight protocols.</p>
-              </div>
-              <div className="space-y-4">
-                <div className="h-40 w-full bg-slate-50 border border-slate-100 p-4 flex flex-col justify-between">
-                  <LineChart size={16} className="text-secondary" />
-                  <span className="font-mono text-[10px] font-bold text-secondary">METRIC: 99.8% VERIFICATION</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* 🗃️ THE REGISTRY (OFFICIAL ACTIVITY) */}
-        <section className="py-32">
-          <div className="section-container">
-            <div className="flex flex-col md:flex-row justify-between items-end gap-12 mb-20">
-              <div className="space-y-4 text-left">
-                <div className="flex items-center gap-2 text-primary font-bold uppercase tracking-[0.3em] text-[10px]">
-                  <Database size={12} />
-                  <span>Real-Time Incident Registry</span>
-                </div>
-                <h2 className="text-4xl font-bold text-accent-dark">Operational Records</h2>
-              </div>
-              <Link to="/complaints" className="text-[10px] font-bold text-primary uppercase tracking-widest border-b-2 border-primary pb-2 hover:text-accent-dark hover:border-accent-dark transition-all">
-                Export Dashboard Data
+      {/* Hero */}
+      <section className="section-container pt-16 pb-20 md:pt-24">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+            <p className="text-teal-600 font-semibold text-sm mb-4">Your city. Your voice. Real fixes.</p>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
+              See a problem?<br />
+              <span className="text-teal-600">Report it.</span><br />
+              Track it. Fix it.
+            </h1>
+            <p className="text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
+              Pothole on your street? Streetlight out? Garbage piling up? Snap a photo, pin the location, and watch your city respond.
+            </p>
+            <div className="flex flex-wrap gap-4">
+              <Link to="/signup" className="btn-primary text-base px-8 py-4">
+                Start Reporting <ArrowRight size={18} />
               </Link>
+              <Link to="/login" className="btn-secondary text-base px-8 py-4">I have an account</Link>
             </div>
+          </motion.div>
 
-            <div className="governance-card overflow-hidden">
-              <div className="bg-slate-50 px-6 py-4 grid grid-cols-5 text-[8px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                <span>Block ID</span>
-                <span>Incident Matrix</span>
-                <span>Geographic Sector</span>
-                <span>Registry Status</span>
-                <span className="text-right">Sync-Time</span>
-              </div>
-              
-              {reports.map((report, i) => (
-                <div key={i} className="registry-row grid grid-cols-5 items-center">
-                  <span className="text-secondary font-bold">{report.block}</span>
-                  <span className="text-accent-dark font-bold uppercase">{report.type}</span>
-                  <span className="text-slate-500">{report.sector}</span>
-                  <div>
-                    <span className={`px-2 py-0.5 rounded-sm font-bold text-[8px] ${
-                      report.status === "VERIFIED" ? "bg-primary/10 text-primary" : 
-                      report.status === "RESOLVED" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-400"
-                    }`}>
-                      {report.status}
-                    </span>
-                  </div>
-                  <span className="text-right text-slate-400">{report.timestamp}</span>
+          {/* Live stats card */}
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
+            className="governance-card p-8 bg-white dark:bg-slate-900">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-6">Live platform stats</p>
+            <div className="grid grid-cols-2 gap-6">
+              {[
+                { value: stats.total || "—", label: "Reports filed", icon: Camera },
+                { value: stats.resolved || "—", label: "Issues resolved", icon: CheckCircle2 },
+                { value: stats.citizens || "—", label: "Active citizens", icon: Users },
+                { value: stats.resolutionRate ? `${stats.resolutionRate}%` : "—", label: "Resolution rate", icon: Zap },
+              ].map((s) => (
+                <div key={s.label}>
+                  <s.icon className="text-teal-500 mb-2" size={20} />
+                  <p className="text-3xl font-bold text-slate-900 dark:text-white">{s.value}</p>
+                  <p className="text-xs text-slate-500 mt-1">{s.label}</p>
                 </div>
               ))}
             </div>
+          </motion.div>
+        </div>
+      </section>
 
-            <div className="mt-12 flex justify-center gap-16 text-slate-300">
-               <span className="text-[8px] font-bold uppercase tracking-[0.4em]">Auth: GS-442</span>
-               <span className="text-[8px] font-bold uppercase tracking-[0.4em]">V-Layer: Active</span>
-               <span className="text-[8px] font-bold uppercase tracking-[0.4em]">Latency: 14ms</span>
-            </div>
+      {/* Issue types */}
+      <section className="bg-white dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 py-16">
+        <div className="section-container">
+          <h2 className="text-2xl font-bold mb-2">What can you report?</h2>
+          <p className="text-slate-500 mb-10">20+ issue categories across your city</p>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {ISSUE_TYPES.map((t) => (
+              <div key={t.label} className="governance-card p-4 text-center hover:shadow-md transition-shadow">
+                <span className="text-3xl block mb-2">{t.emoji}</span>
+                <p className="font-semibold text-sm">{t.label}</p>
+              </div>
+            ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* 🛡️ MATTE STANDARDS (TRUST INFRASTRUCTURE) */}
-        <section className="py-32 bg-white border-y border-slate-100">
-          <div className="section-container">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-24">
-              <div className="space-y-8">
-                <SearchCode className="text-primary" size={40} />
-                <h3 className="text-2xl font-bold">Verifiable Logic</h3>
-                <p className="text-sm text-slate-500 leading-relaxed font-medium">Every incident report is processed through our verifiable audit trail, ensuring that civilian data remains immutable and transparent.</p>
-                <div className="w-12 h-[1px] bg-slate-200" />
-              </div>
-              <div className="space-y-8">
-                <ShieldCheck className="text-primary" size={40} />
-                <h3 className="text-2xl font-bold">Encrypted Custody</h3>
-                <p className="text-sm text-slate-500 leading-relaxed font-medium">Data sovereignty is our primary standard. All reports are cryptographically signed at the point of origin to prevent unauthorized tampering.</p>
-                <div className="w-12 h-[1px] bg-slate-200" />
-              </div>
-              <div className="space-y-8">
-                <Flag className="text-primary" size={40} />
-                <h3 className="text-2xl font-bold">Institutional Link</h3>
-                <p className="text-sm text-slate-500 leading-relaxed font-medium">Verified reports are instantly dispatched to the relevant institutional authorities via our secure infrastructure pipe.</p>
-                <div className="w-12 h-[1px] bg-slate-200" />
+      {/* How it works - real steps */}
+      <section className="section-container py-20">
+        <h2 className="text-2xl font-bold text-center mb-12">Four steps to a better neighborhood</h2>
+        <div className="grid md:grid-cols-4 gap-8">
+          {[
+            { step: "01", title: "Snap & pin", desc: "Take a photo, drop a pin on the interactive map, pick severity.", icon: Camera },
+            { step: "02", title: "We route it", desc: "Your report goes to the right municipal department automatically.", icon: MapPin },
+            { step: "03", title: "Track live", desc: "Get notifications as status changes. Comment and get community support.", icon: Zap },
+            { step: "04", title: "Earn rewards", desc: "Points, badges, and leaderboard ranks for active citizens.", icon: Shield },
+          ].map((item) => (
+            <div key={item.step} className="relative">
+              <span className="text-5xl font-black text-teal-100 dark:text-teal-900/40 absolute -top-4 -left-1">{item.step}</span>
+              <div className="relative pt-8">
+                <item.icon className="text-teal-600 mb-3" size={24} />
+                <h3 className="font-bold mb-2">{item.title}</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
               </div>
             </div>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="bg-teal-700 text-white py-20">
+        <div className="section-container text-center">
+          <h2 className="text-3xl font-bold mb-4">Your street won't fix itself</h2>
+          <p className="text-teal-100 mb-8 max-w-md mx-auto">Join {stats.citizens || "thousands of"} citizens already making their cities better.</p>
+          <Link to="/signup" className="inline-flex items-center gap-2 px-8 py-4 bg-white text-teal-700 rounded-xl font-bold hover:bg-teal-50 transition-all">
+            Create free account <ArrowRight size={18} />
+          </Link>
+        </div>
+      </section>
+
+      <footer className="border-t border-slate-200 dark:border-slate-800 py-10">
+        <div className="section-container flex flex-col md:flex-row justify-between items-center gap-4">
+          <Logo className="h-5 opacity-60 dark:brightness-0 dark:invert" />
+          <p className="text-xs text-slate-400">© {new Date().getFullYear()} Civic Eye</p>
+          <div className="flex gap-6 text-sm text-slate-500">
+            <Link to="/about" className="hover:text-teal-600">About</Link>
+            <Link to="/login" className="hover:text-teal-600">Sign in</Link>
           </div>
-        </section>
-
-        {/* 🏛️ GLOBAL GOVERNANCE FOOTER */}
-        <footer className="bg-accent-dark text-slate-500 py-32 pt-48">
-          <div className="section-container">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-20 mb-32">
-              <div className="md:col-span-2 space-y-12">
-                <img src={logo} alt="CivicEye" className="h-5 brightness-0 invert opacity-20 grayscale" />
-                <div className="space-y-6">
-                  <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-[0.4em]">Infrastructure Mandate</h4>
-                  <p className="text-xs font-medium leading-relaxed max-w-sm uppercase tracking-wider text-slate-600">
-                    The official infrastructure for digital civic engagement. 
-                    Bridging the institutional gap through cryptographic 
-                    transparency and decentralized oversight.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-8">
-                <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Platform Governance</h4>
-                <nav className="flex flex-col gap-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                  <Link to="/about" className="hover:text-white transition-colors">Surveillance Policy</Link>
-                  <Link to="/privacy" className="hover:text-white transition-colors">Data Sovereignity</Link>
-                  <Link to="/terms" className="hover:text-white transition-colors">Institutional Terms</Link>
-                </nav>
-              </div>
-
-              <div className="space-y-8">
-                 <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Channel Matrix</h4>
-                 <div className="flex flex-col gap-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                    <p>X-Oversight: CE-88</p>
-                    <p>Auth-Pipe: V-Layer 12</p>
-                 </div>
-              </div>
-            </div>
-
-            <div className="pt-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-12">
-               <p className="font-mono text-[8px] text-white/10 tracking-[0.5em] uppercase">
-                 © {new Date().getFullYear()} CIVIC_EYE_INFRASTRUCTURE // GOVERNMENTAL_ELITE_STANDARDS
-               </p>
-               <div className="flex gap-12 opacity-5 grayscale invert brightness-0">
-                  <Globe size={20} />
-                  <Database size={20} />
-                  <Scale size={20} />
-               </div>
-            </div>
-          </div>
-        </footer>
-      </main>
+        </div>
+      </footer>
     </div>
   );
 };

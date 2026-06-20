@@ -1,281 +1,182 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import toast, { Toaster } from 'react-hot-toast';
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
+import { Loader2, MapPin, User } from "lucide-react";
+import api from "../lib/apiClient";
+import { formatDate } from "../lib/utils";
+import { STATUS_OPTIONS } from "../constants/categories";
+import { AdminLayout } from "../components/layout/AdminLayout";
+import { ReportDetailView } from "../components/reports/ReportDetailView";
+import { LoadingSpinner } from "../components/ui/LoadingSpinner";
+import { useAuthMedia } from "../hooks/useAuthMedia";
 
 export const AdminComplaintDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [complaint, setComplaint] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [mediaType, setMediaType] = useState(null);
-  const [newStatus, setNewStatus] = useState('');
+  const queryClient = useQueryClient();
+  const [newStatus, setNewStatus] = useState("");
+  const [assignedTo, setAssignedTo] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [note, setNote] = useState("");
+  const [officialResponse, setOfficialResponse] = useState("");
+  const [updating, setUpdating] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-complaint", id],
+    queryFn: async () => {
+      const [reportRes, staffRes, deptRes] = await Promise.all([
+        api.get(`/complaint/admin/detail/${id}`),
+        api.get("/complaint/staff"),
+        api.get("/department/admin"),
+      ]);
+      return { complaint: reportRes.data, staff: staffRes.data, departments: deptRes.data };
+    },
+  });
+
+  const complaint = data?.complaint;
+  const staff = data?.staff || [];
+  const departments = (data?.departments || []).filter((d) => d.isActive);
 
   useEffect(() => {
-    fetchComplaintDetails();
-  }, [id]);
+    if (complaint) {
+      setNewStatus(complaint.status);
+      setAssignedTo(complaint.assignedTo?._id || "");
+      setDepartmentId(complaint.departmentId?._id || "");
+      setOfficialResponse(complaint.officialResponse?.text || "");
+    }
+  }, [complaint?._id, complaint?.status]);
 
-  const fetchComplaintDetails = async () => {
+  const { blobUrl: mediaUrl, loading: mediaLoading } = useAuthMedia(complaint?.proof);
+
+  const handleUpdate = async () => {
+    setUpdating(true);
     try {
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        setError('You must be logged in to view complaint details');
-        setLoading(false);
-        return;
-      }
-
-      const response = await axios.get(
-        `https://civiceye-backend-7le4.onrender.com/complaint/admin/detail/${id}`,
-        {
-          headers: {
-            "x-auth-token": token,
-          }
-        }
-      );
-      
-      setComplaint(response.data);
-      
-      // Determine media type based on file extension
-      const proofPath = response.data.proof;
-      const extension = proofPath.split('.').pop().toLowerCase();
-      
-      if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
-        setMediaType('image');
-      } else if (['mp4', 'mov', 'avi', 'wmv'].includes(extension)) {
-        setMediaType('video');
-      } else {
-        setMediaType('other');
-      }
-      
-      setLoading(false);
-    } catch (error) {
-      setError(
-        error.response?.data?.message || 
-        'Failed to fetch complaint details. Please try again.'
-      );
-      setLoading(false);
+      const res = await api.put(`/complaint/update/${id}`, {
+        status: newStatus,
+        note: note || undefined,
+        assignedTo: assignedTo || null,
+        departmentId: departmentId || null,
+        officialResponse: officialResponse.trim() || undefined,
+      });
+      queryClient.setQueryData(["admin-complaint", id], (old) => ({
+        ...old,
+        complaint: res.data.complaint,
+      }));
+      toast.success("Report updated");
+      setNote("");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Update failed");
+    } finally {
+      setUpdating(false);
     }
   };
 
-  const getStatusBadge = (status) => {
-    const statusColors = {
-      'Pending': 'bg-yellow-100 text-yellow-800',
-      'In Progress': 'bg-yellow-100 text-yellow-800',
-      'Resolved': 'bg-green-100 text-green-800',
-      'Rejected': 'bg-red-100 text-red-800'
-    };
-
-    return (
-      <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[status] || 'bg-gray-100'}`}>
-        {status}
-      </span>
-    );
-  };
-
-  const renderProofMedia = () => {
-    if (!complaint || !complaint.proof) return null;
-    
-    // Get the server URL (assuming uploads are served from backend)
-    const serverUrl = 'https://civiceye-backend-7le4.onrender.com';
-    
-    // Extract the file path (remove any absolute path and keep relative path)
-    const filePath = complaint.proof.replace(/^.*[\\\/]uploads[\\\/]/, '/uploads/');
-    
-    // Construct full URL
-    const mediaUrl = `${serverUrl}${filePath.startsWith('/') ? '' : '/'}${filePath}`;
-    
-    if (mediaType === 'image') {
-      return (
-        <div className="mt-3">
-          <img 
-            src={mediaUrl} 
-            alt="Complaint proof" 
-            className="max-w-full h-auto rounded border border-gray-200"
-            style={{ maxHeight: '400px' }}
-          />
-        </div>
-      );
-    } else if (mediaType === 'video') {
-      return (
-        <div className="mt-3">
-          <video 
-            controls 
-            className="max-w-full rounded border border-gray-200"
-            style={{ maxHeight: '400px' }}
-          >
-            <source src={mediaUrl} type={`video/${complaint.proof.split('.').pop().toLowerCase()}`} />
-            Your browser does not support the video tag.
-          </video>
-        </div>
-      );
-    } else {
-      return (
-        <div className="mt-2">
-          <a 
-            href={mediaUrl} 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="text-blue-600 hover:text-blue-800 underline"
-          >
-            View uploaded file
-          </a>
-        </div>
-      );
+  const handleAppeal = async (action) => {
+    setUpdating(true);
+    try {
+      const res = await api.put(`/complaint/update/${id}`, {
+        appealAction: action,
+        note: note || undefined,
+      });
+      queryClient.setQueryData(["admin-complaint", id], (old) => ({
+        ...old,
+        complaint: res.data.complaint,
+      }));
+      toast.success(action === "accept" ? "Appeal accepted" : "Appeal denied");
+      setNote("");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Appeal action failed");
+    } finally {
+      setUpdating(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="max-w-2xl mx-auto mt-10 p-6 bg-red-100 text-red-700 rounded">
-        <p>{error}</p>
-      </div>
-    );
+  if (isLoading) {
+    return <AdminLayout title="Report Details"><LoadingSpinner /></AdminLayout>;
   }
 
   if (!complaint) {
-    return (
-      <div className="max-w-2xl mx-auto mt-10 p-6 bg-white rounded-lg shadow-lg">
-        <p className="text-center text-gray-500">Complaint not found</p>
-      </div>
-    );
+    return <AdminLayout title="Report Details"><p className="text-center text-slate-500">Not found</p></AdminLayout>;
   }
 
-  const handleStatusUpdate = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setError('You must be logged in to update complaint status');
-        return;
-      }
-      if (!newStatus) {
-        setError('Please select a status');
-        return;
-      }
-
-      const response = await axios.put(
-        `https://civiceye-backend-7le4.onrender.com//complaint/update/${id}`,
-        { status: newStatus },
-        {
-          headers: {
-            "x-auth-token": token,
-          }
-        }
-      );
-
-      // Update the complaint state with the new data
-      setComplaint(response.data.complaint);
-      setError(''); // Clear any previous errors
-      toast.success("status updated succesfully");
-    } catch (error) {
-      console.error("Error updating status:", error.response?.data || error.message);
-      setError(
-        error.response?.data?.message || 
-        'Failed to update complaint status. Please try again.'
-      );
-    }
-  };
-
   return (
-    <div className="max-w-2xl mx-auto mt-10 p-6 bg-white rounded-lg shadow-lg">
-      <Toaster/>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Complaint Details</h2>
-        <button
-          onClick={() => navigate(-1)}
-          className="text-white hover:bg-blue-800 rounded-2xl bg-blue-600 px-2 py-1"
-        >
-          Back to List
-        </button>
-      </div>
+    <AdminLayout title="Manage Report" subtitle={complaint.type}>
+      <div className="max-w-3xl mx-auto space-y-4">
+        <button onClick={() => navigate(-1)} className="text-sm text-primary font-medium hover:underline">← Back</button>
 
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Status</h3>
-          {getStatusBadge(complaint.status)}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <p className="text-sm text-gray-500">Created At</p>
-            <p className="font-medium">{complaint.createdAt}</p>
-          </div>
-          
-          {complaint.resolvedAt && (
-            <div>
-              <p className="text-sm text-gray-500">Resolved At</p>
-              <p className="font-medium">{complaint.resolvedAt}</p>
+        <ReportDetailView
+          complaint={complaint}
+          reportId={id}
+          mode="admin"
+          mediaUrl={mediaUrl}
+          mediaLoading={mediaLoading}
+          showComments
+          reporterInfo={
+            <div className="grid sm:grid-cols-2 gap-4 mb-4 text-sm">
+              <div><span className="text-slate-500">Reporter:</span> <span className="font-medium">{complaint.userId?.name}</span></div>
+              <div><span className="text-slate-500">Email:</span> <span className="font-medium">{complaint.userId?.email}</span></div>
+              <div className="flex items-center gap-1"><MapPin size={14} className="text-primary" />{complaint.location}</div>
+              <div><span className="text-slate-500">Submitted:</span> {formatDate(complaint.createdAt || complaint.createdAtLegacy)}</div>
             </div>
-          )}
-        </div>
+          }
+          manageSection={
+            <>
+              {complaint.appealStatus === "pending" && (
+                <div className="governance-card p-6 border-2 border-amber-300 dark:border-amber-700">
+                  <h3 className="font-semibold mb-2">Pending appeal</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">{complaint.appealNote}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => handleAppeal("accept")} disabled={updating} className="btn-primary !py-2 !px-4 text-sm">
+                      Accept appeal
+                    </button>
+                    <button type="button" onClick={() => handleAppeal("deny")} disabled={updating} className="btn-secondary !py-2 !px-4 text-sm">
+                      Deny appeal
+                    </button>
+                  </div>
+                </div>
+              )}
+            <div className="governance-card p-6">
+              <h3 className="font-semibold mb-4">Manage report</h3>
+              <div className="grid sm:grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="text-xs font-medium text-slate-500 mb-1 block">Status</label>
+                  <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className="input-field">
+                    {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1"><User size={12} /> Assign to</label>
+                  <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className="input-field">
+                    <option value="">Unassigned</option>
+                    {staff.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500 mb-1 block">Department</label>
+                  <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} className="input-field">
+                    <option value="">Auto / none</option>
+                    {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Official public response</label>
+              <textarea
+                value={officialResponse}
+                onChange={(e) => setOfficialResponse(e.target.value)}
+                rows={3}
+                placeholder="Publish an official update visible to the citizen..."
+                className="input-field mb-3 resize-none"
+              />
+              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Internal timeline note..." className="input-field mb-3" />
+              <button onClick={handleUpdate} disabled={updating} className="btn-primary">
+                {updating ? <Loader2 className="animate-spin" size={18} /> : "Save changes"}
+              </button>
+            </div>
+            </>
+          }
+        />
       </div>
-
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-2">Complaint Information</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <p className="text-sm text-gray-500">Type</p>
-            <p className="font-medium">{complaint.type}</p>
-          </div>
-          
-          <div>
-            <p className="text-sm text-gray-500">Location</p>
-            <p className="font-medium">{complaint.location}</p>
-          </div>
-        </div>
-        
-        <div className="mb-4">
-          <p className="text-sm text-gray-500">Description</p>
-          <p className="mt-1">{complaint.description}</p>
-        </div>
-        
-        <div>
-          <p className="text-sm text-gray-500">Proof/Reference</p>
-          {renderProofMedia()}
-        </div>
-      </div>
-      <div className="border-t pt-6 mt-6">
-        <h3 className="text-lg font-semibold mb-2">Update Status</h3>
-        <div className="flex items-center space-x-4">
-          <select
-            value={newStatus}
-            onChange={(e) => setNewStatus(e.target.value)}
-            className="border border-gray-300 rounded-lg px-4 py-2"
-          >
-            <option value="">Select Status</option>
-            <option value="Pending">Pending</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Resolved">Resolved</option>
-            <option value="Rejected">Rejected</option>
-          </select>
-          <button
-            onClick={handleStatusUpdate}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-            disabled={!newStatus}
-          >
-            Update Status
-          </button>
-        </div>
-        {error && <p className="text-red-500 mt-2">{error}</p>}
-      </div>
-      
-      {complaint.status === 'Pending' && (
-        <div className="border-t pt-6 mt-6">
-          <p className="text-gray-600 italic">
-            Your complaint is currently under review. You'll be notified once there's an update.
-          </p>
-        </div>
-      )}
-    </div>
+    </AdminLayout>
   );
 };

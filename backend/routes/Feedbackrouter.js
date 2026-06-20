@@ -2,30 +2,23 @@ import express from "express";
 import {
   addFeedback,
   getAllFeedback,
+  getFeedbackById,
   getFeedbackByStatus,
   getFeedbackCountByStatus,
-  updateFeedbackStatus
+  updateFeedbackStatus,
 } from "../controllers/Feedbackcontroller.js";
 import auth from "../middleware/auth.js";
+import { requireRole } from "../middleware/requireRole.js";
+import { validate } from "../middleware/validate.js";
+import { feedbackSchema } from "../validators/schemas.js";
 
-const feedbackrouter = express.Router();
+const FeedbackRouter = express.Router();
 
-// Route to add feedback
-feedbackrouter.post("/add", auth, addFeedback);
+FeedbackRouter.post("/add", auth, validate(feedbackSchema), addFeedback);
+FeedbackRouter.get("/all", auth, requireRole("admin"), getAllFeedback);
+FeedbackRouter.put("/updatestatus", auth, requireRole("admin"), updateFeedbackStatus);
+FeedbackRouter.get("/status/:status", auth, requireRole("admin"), getFeedbackByStatus);
+FeedbackRouter.get("/countbystatus", auth, requireRole("admin"), getFeedbackCountByStatus);
+FeedbackRouter.get("/:id", auth, requireRole("admin"), getFeedbackById);
 
-// Route to get all feedback
-feedbackrouter.get("/all", auth, getAllFeedback);
-
-// Route to update feedback status
-feedbackrouter.put("/updatestatus", auth, updateFeedbackStatus);
-
-// ✅ Correct GET route to get feedbacks by status
-feedbackrouter.get("/status/:status", (req, res, next) => {
-  console.log("✅ Route hit:", req.originalUrl);
-  next();
-}, getFeedbackByStatus);
-
-// Route to get feedback count by status
-feedbackrouter.get("/countbystatus", auth, getFeedbackCountByStatus);
-
-export default feedbackrouter;
+export default FeedbackRouter;

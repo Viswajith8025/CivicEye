@@ -1,143 +1,101 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { Plus, Search } from "lucide-react";
+import api from "../lib/apiClient";
+import { formatDate, truncate } from "../lib/utils";
+import { extractPaginatedData } from "../lib/pagination";
+import { STATUS_OPTIONS } from "../constants/categories";
+import { CitizenLayout } from "../components/layout/CitizenLayout";
+import { LoadingSpinner } from "../components/ui/LoadingSpinner";
+import { EmptyState } from "../components/ui/EmptyState";
+import { Pagination } from "../components/ui/Pagination";
+import { SeverityBadge, StatusBadge } from "../components/ui/Badge";
 
 export const CivicEyeComplaintList = () => {
-  const navigate = useNavigate();
-  const [complaints, setComplaints] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    fetchComplaints();
-  }, []);
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ["my-complaints", { search, status, page }],
+    queryFn: () =>
+      api.get("/complaint/list", { params: { search: search || undefined, status: status || undefined, page, limit: 15 } }),
+    keepPreviousData: true,
+  });
 
-  const fetchComplaints = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        setError('You must be logged in to view complaints');
-        setLoading(false);
-        return;
-      }
-
-      const response = await axios.get(
-        'https://civiceye-backend-7le4.onrender.com/complaint/list',
-        {
-          headers: {
-            "x-auth-token": token,
-          }
-        }
-      );
-
-      setComplaints(response.data);
-      setLoading(false);
-    } catch (error) {
-      setError(
-        error.response?.data?.message || 
-        'Failed to fetch complaints. Please try again.'
-      );
-      setLoading(false);
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'Resolved':
-        return 'bg-green-100 text-green-800';
-      case 'Rejected':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-yellow-100 text-yellow-800';
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="max-w-4xl mx-auto mt-10 p-6 bg-red-100 text-red-700 rounded">
-        <p>{error}</p>
-      </div>
-    );
-  }
+  const { data: complaints, pagination } = extractPaginatedData(data);
 
   return (
-    <div className="max-w-4xl mx-auto mt-10 p-6 bg-white rounded-lg shadow-lg">
-      <div className="fixed top-4 left-4 z-10">
-        <button
-          onClick={() => navigate("/userhome")}
-          className="px-3 py-1 text-sm text-white bg-blue-600 rounded-full shadow-lg hover:bg-blue-800 transition-colors flex items-center"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back to home
-        </button>
-      </div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">My Complaints</h2>
-        <Link 
-          to="/registercomplaint" 
-          className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded"
-        >
-          Register New Complaint
-        </Link>
-      </div>
+    <CitizenLayout title="My Reports" subtitle="Track and manage your submitted civic issues">
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row gap-4 justify-between">
+          <div className="flex flex-1 gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                placeholder="Search reports..."
+                className="input-field pl-10"
+              />
+            </div>
+            <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="input-field w-auto">
+              <option value="">All Status</option>
+              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <Link to="/registercomplaint" className="btn-primary shrink-0">
+            <Plus size={18} /> New Report
+          </Link>
+        </div>
 
-      {complaints.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-gray-500">You haven't filed any complaints yet.</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white">
-            <thead>
-              <tr className="bg-gray-100 text-gray-700">
-                <th className="py-3 px-4 text-left">Type</th>
-                <th className="py-3 px-4 text-left">Description</th>
-                <th className="py-3 px-4 text-left">Location</th>
-                <th className="py-3 px-4 text-left">Status</th>
-                <th className="py-3 px-4 text-left">Created At</th>
-                <th className="py-3 px-4 text-left">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {complaints.map((complaint) => (
-                <tr key={complaint._id} className="hover:bg-gray-50">
-                  <td className="py-3 px-4">{complaint.type}</td>
-                  <td className="py-3 px-4 truncate max-w-xs">
-                    {complaint.description.substring(0, 50)}
-                    {complaint.description.length > 50 ? '...' : ''}
-                  </td>
-                  <td className="py-3 px-4">{complaint.location}</td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(complaint.status)}`}>
-                      {complaint.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">{complaint.createdAt}</td>
-                  <td className="py-3 px-4">
-                    <Link 
-                      to={`/complaintdetail/${complaint._id}`}
-                      className="text-blue-500 hover:text-blue-700"
-                    >
-                      View Details
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+        {isLoading ? (
+          <LoadingSpinner />
+        ) : complaints.length === 0 ? (
+          <EmptyState
+            title="No reports found"
+            description={search || status ? "Try adjusting your filters" : "You haven't submitted any reports yet"}
+            action={<Link to="/registercomplaint" className="btn-primary"><Plus size={18} /> Submit Report</Link>}
+          />
+        ) : (
+          <div className="governance-card overflow-hidden">
+            {isFetching && !isLoading && <p className="text-xs text-slate-400 px-6 pt-3">Updating...</p>}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-800 text-left">
+                    <th className="px-6 py-4 font-semibold text-slate-500">Issue</th>
+                    <th className="px-6 py-4 font-semibold text-slate-500 hidden md:table-cell">Location</th>
+                    <th className="px-6 py-4 font-semibold text-slate-500">Severity</th>
+                    <th className="px-6 py-4 font-semibold text-slate-500">Status</th>
+                    <th className="px-6 py-4 font-semibold text-slate-500 hidden sm:table-cell">Date</th>
+                    <th className="px-6 py-4" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {complaints.map((c) => (
+                    <tr key={c._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="px-6 py-4">
+                        <p className="font-medium">{c.type}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{truncate(c.description, 50)}</p>
+                      </td>
+                      <td className="px-6 py-4 text-slate-500 hidden md:table-cell">{truncate(c.location, 30)}</td>
+                      <td className="px-6 py-4"><SeverityBadge severity={c.severity || "Medium"} /></td>
+                      <td className="px-6 py-4"><StatusBadge status={c.status} /></td>
+                      <td className="px-6 py-4 text-slate-500 text-xs hidden sm:table-cell">{formatDate(c.createdAt || c.createdAtLegacy)}</td>
+                      <td className="px-6 py-4">
+                        <Link to={`/complaintdetail/${c._id}`} className="text-primary font-medium text-sm hover:underline">View</Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Pagination pagination={pagination} onPageChange={setPage} />
+          </div>
+        )}
+      </div>
+    </CitizenLayout>
   );
 };

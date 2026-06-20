@@ -1,41 +1,57 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-primary: #4338CA;
-  --color-secondary: #94A3B8;
-  --color-accent-dark: #1E1B4B;
-  --color-bgColor: #F8FAFC;
-  --color-neutral-light: #FFFFFF;
+  --color-primary: #0d9488;
+  --color-primary-light: #14b8a6;
+  --color-secondary: #64748b;
+  --color-accent-dark: #134e4a;
+  --color-bgColor: #f0fdfa;
+  --color-neutral-light: #ffffff;
 
-  --font-sans: "Outfit", sans-serif;
+  --font-sans: "DM Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 }
 
 @layer base {
   body {
-    @apply bg-bgColor text-accent-dark font-sans antialiased selection:bg-primary/20;
-  }
-
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-bold tracking-tight text-accent-dark uppercase;
+    @apply bg-bgColor text-slate-900 dark:bg-slate-950 dark:text-slate-100 font-sans antialiased selection:bg-primary/20;
   }
 }
 
 @layer components {
   .section-container {
-    @apply max-w-7xl mx-auto px-10 md:px-20;
+    @apply max-w-7xl mx-auto px-6 md:px-10;
   }
-  
+
   .governance-card {
-    @apply bg-white border border-slate-200 shadow-sm transition-all duration-300 hover:border-primary/20 hover:shadow-md;
+    @apply bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm transition-all duration-300;
   }
 
-  .btn-official {
-    @apply px-10 py-4 rounded-sm font-bold transition-all duration-300 relative overflow-hidden flex items-center justify-center gap-2 active:scale-95;
-    @apply bg-primary text-white shadow-sm hover:bg-accent-dark;
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200;
+    @apply bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary-light active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed;
   }
 
-  .registry-row {
-    @apply flex items-center py-4 border-b border-slate-100 font-mono text-[10px] hover:bg-slate-50 transition-colors px-6;
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200;
+    @apply bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-primary/40 active:scale-[0.98];
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700;
+    @apply text-slate-900 dark:text-white placeholder:text-slate-400;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm;
+  }
+
+  .stat-card {
+    @apply bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6 relative overflow-hidden transition-all duration-300;
+  }
+
+  .stat-card::before {
+    content: "";
+    @apply absolute top-0 left-0 w-1 h-full bg-primary rounded-l-2xl;
   }
 }

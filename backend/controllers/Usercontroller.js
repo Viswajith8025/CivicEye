@@ -3,19 +3,21 @@ import user from "../model/UserSchema.js";
 import bcrypt from 'bcryptjs';
 import 'dotenv/config';
 import jwt from 'jsonwebtoken';
+import { parsePagination, paginatedResponse } from "../utilies/pagination.js";
 
 
 
 export async function register(req, res) {
   try {
     const { name, email, age, mobile, password } = req.body;
+    const normalizedEmail = email?.trim().toLowerCase();
 
-    if (!name || !email || !age || !mobile || !password) {
+    if (!name || !normalizedEmail || !age || !mobile || !password) {
       return res.status(400).json({ message: "data missing" })
 
     }
 
-    let existinguser = await user.findOne({ email })
+    let existinguser = await user.findOne({ email: normalizedEmail })
 
     if (existinguser) {
       return res.status(409).json({ message: "username already exists try another username" })
@@ -24,7 +26,7 @@ export async function register(req, res) {
     const salt = parseInt(process.env.SALT) || 10
     const hashedpassword = await bcrypt.hash(password, salt)
 
-    await user.create({ name, email, age, mobile, password: hashedpassword })
+    await user.create({ name, email: normalizedEmail, age, mobile, password: hashedpassword })
     return res.status(201).json({ message: "user created" })
   } catch (error) {
     console.log(error);
@@ -37,17 +39,22 @@ export async function register(req, res) {
 export async function login(req, res) {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
+    const normalizedEmail = email?.trim().toLowerCase();
+    if (!normalizedEmail || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
-    let users = await user.findOne({ email });
+    let users = await user.findOne({ email: normalizedEmail });
     if (!users) {
-      return res.status(400).json({ message: "User not found" });
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    if (users.deletestate === true) {
+      return res.status(403).json({ message: "Account has been deactivated. Contact support." });
     }
 
     const isValidPassword = await bcrypt.compare(password, users.password);
     if (!isValidPassword) {
-      return res.status(401).json({ message: "Password is incorrect" });
+      return res.status(401).json({ message: "Invalid email or password" });
     }
 
     // Include role in the token
@@ -77,7 +84,7 @@ export async function viewuser(req, res) {
   }
 
   try {
-    const userRecord = await user.findById(id);
+    const userRecord = await user.findById(id).select("-password");
 
     if (!userRecord) {
       return res.status(404).json({ message: "User Not Found" });
@@ -125,11 +132,13 @@ export async function updateuserprofile(req, res) {
     if (idProofNumber) userRecord.idProofNumber = idProofNumber;
 
     // Save updated user
-    const updatedUser = await userRecord.save();
+    await userRecord.save();
+
+    const updatedUser = await user.findById(userId).select("-password");
 
     return res.status(200).json({
-      message: 'Profile updated successfully',
-      user: updatedUser
+      message: "Profile updated successfully",
+      user: updatedUser,
     });
   } catch (error) {
     console.error('Error updating user profile:', error);
@@ -142,16 +151,11 @@ export async function updateuserprofile(req, res) {
 
 export async function viewUserProfile(req, res) {
   try {
-    // Get user ID from auth middleware
     const userId = req.user.userid;
-
-    // Fetch user details (excluding password)
     const userRecord = await user.findById(userId).select("-password");
-
     if (!userRecord) {
       return res.status(404).json({ message: "User not found" });
     }
-
     return res.status(200).json(userRecord);
   } catch (error) {
     console.error("Error fetching user profile:", error);
@@ -159,10 +163,28 @@ export async function viewUserProfile(req, res) {
   }
 }
 
+export async function getLeaderboard(req, res) {
+  try {
+    const leaders = await user
+      .find({ role: "user", deletestate: { $ne: true } })
+      .select("name points reports achievements")
+      .sort({ points: -1, reports: -1 })
+      .limit(20);
+    return res.status(200).json(leaders);
+  } catch (error) {
+    return res.status(500).json({ message: "Server error", error: error.message });
+  }
+}
+
 export async function getAllUsers(req, res) {
   try {
-    const users = await user.find({ role: { $ne: "admin" } }).select("-password"); // Exclude password field for security
-    return res.status(200).json(users);
+    const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 25 });
+    const filter = { role: { $ne: "admin" } };
+    const [users, total] = await Promise.all([
+      user.find(filter).select("-password").sort({ name: 1 }).skip(skip).limit(limit),
+      user.countDocuments(filter),
+    ]);
+    return res.status(200).json(paginatedResponse(users, total, page, limit));
   } catch (error) {
     console.error("Error fetching users:", error);
     return res.status(500).json({ message: "Server error", error: error.message });
@@ -209,7 +231,7 @@ export async function deleteUser(req, res) {
     }
 
     // Check if the requesting user is authorized (assuming req.user is set by auth middleware)
-    if (req.user.role !== "admin" && req.user.id !== id) {
+    if (req.user.role !== "admin" && req.user.userid !== id) {
       return res.status(403).json({ message: "Unauthorized to delete this user" });
     }
 

@@ -1,41 +1,46 @@
-import React from 'react'
-import logo from "./assets/celogofull.png"
+import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import { ArrowRight, Heart, Shield, Users } from "lucide-react";
+import { Logo } from "./components/common/Logo";
+import { ThemeToggle } from "./components/common/ThemeToggle";
 
-export const CivicEyeAboutPage = () => {
-  return (
-    <div>
-        <div><header className="bg-white shadow-md sticky top-0 z-50">
-              <div className="flex items-center justify-between py-4 px-6 gap-x-10">
-                <img src={logo} alt="CivicEye Logo" className='h-6'/>
-              {/* <h1 className="text-2xl font-bold text-blue-600">Civic<span className="text-black">EYE</span></h1> */}
-                  <nav className="flex gap-6 text-gray-700">
-                    <a href="#" className="hover:text-blue-500">Home</a>
-                    <a href="#" className="hover:text-blue-500">My Complaints</a>
-                    {/* <a href="#" className="hover:text-blue-500">About</a> */}
-                    </nav>
-                  <button className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600">Sign up</button>
-                </div>
-              </header></div>
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
-      <div className="max-w-4xl bg-white shadow-lg rounded-2xl p-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-4">About Our Platform</h1> 
-        <p className="text-gray-600 mb-4">
-          Our Citizen Complaints and Reporting Web Application empowers civilians to actively participate in improving public infrastructure and services. 
-          By allowing users to upload complaints with photographic or video evidence, we bridge the gap between citizens and authorities.
-        </p>
-        <h2 className="text-2xl font-semibold text-gray-700 mt-6">Key Features</h2>
-        <ul className="list-disc list-inside text-gray-600 mt-2 space-y-2">
-          <li>Upload complaints with photo/video evidence</li>
-          <li>Track complaint status through user accounts</li>
-          <li>Transparency and accountability in complaint resolution</li>
-          <li>Incentives: Earn 20% of fines collected after resolution</li>
-        </ul>
-        <h2 className="text-2xl font-semibold text-gray-700 mt-6">Our Mission</h2>
-        <p className="text-gray-600 mt-2">
-          We aim to create a transparent and accountable system where citizens and authorities work together to improve public services and infrastructure.
-        </p>
+export const CivicEyeAboutPage = () => (
+  <div className="min-h-screen bg-bgColor dark:bg-slate-950">
+    <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800">
+      <div className="section-container flex items-center justify-between h-16">
+        <Link to="/"><Logo className="h-7 dark:brightness-0 dark:invert" /></Link>
+        <div className="flex items-center gap-4">
+          <Link to="/" className="text-sm text-slate-600 dark:text-slate-300 hover:text-primary">Home</Link>
+          <ThemeToggle />
+        </div>
       </div>
-    </div>
-    </div>
-  )
-}
+    </header>
+
+    <section className="section-container py-20 md:py-28">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-3xl">
+        <h1 className="text-4xl font-bold mb-6">About Civic Eye</h1>
+        <p className="text-lg text-slate-500 leading-relaxed mb-8">
+          Civic Eye is a citizen reporting platform that empowers communities to report road and civic issues — potholes, damaged roads, waste dumping, water leakage, streetlight failures, and traffic violations — with transparency and accountability.
+        </p>
+
+        <div className="grid sm:grid-cols-3 gap-6 mb-12">
+          {[
+            { icon: Users, title: "For Citizens", desc: "Report issues easily with photos, GPS, and track resolution." },
+            { icon: Shield, title: "For Authorities", desc: "Manage, assign, and resolve reports with analytics." },
+            { icon: Heart, title: "For Communities", desc: "Earn rewards and climb leaderboards for civic engagement." },
+          ].map((item) => (
+            <div key={item.title} className="governance-card p-6">
+              <item.icon className="text-primary mb-3" size={24} />
+              <h3 className="font-semibold mb-2">{item.title}</h3>
+              <p className="text-sm text-slate-500">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <Link to="/signup" className="btn-primary">
+          Join Civic Eye <ArrowRight size={18} />
+        </Link>
+      </motion.div>
+    </section>
+  </div>
+);
